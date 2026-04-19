@@ -8,9 +8,15 @@ app.use(cors());
 app.use(express.json());
 
 // ✅ MongoDB
-mongoose.connect("mongodb+srv://kumaraswanth486_db_user:Ash12345@cluster0.p0hhxl8.mongodb.net/scrapDB")
-  .then(() => console.log("MongoDB Connected ✅"))
-  .catch(err => console.log("DB ERROR:", err));
+mongoose.connect(
+  "mongodb+srv://kumaraswanth486_db_user:Ash12345@cluster0.p0hhxl8.mongodb.net/scrapDB",
+  {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  }
+)
+.then(() => console.log("MongoDB Connected ✅"))
+.catch(err => console.log("Mongo Error ❌", err));
 
 // ✅ Routes
 app.use("/api/bill", require("./routes/billRoutes"));
