@@ -1,0 +1,52 @@
+/* Scrap Business Theme Additions */
+.bg-gradient {
+  background: linear-gradient(135deg, #1a1a1a, #0f0e0a);
+}
+
+.form-control:focus {
+  border-color: #d97706;
+  box-shadow: 0 0 0 0.2rem rgba(217, 119, 6, 0.25);
+  background-color: #1a1a1a;
+  color: #fff;
+}
+
+.form-control::placeholder {
+  color: #6c757d;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1a1a1a;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d97706;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #f59e0b;
+}
+
+/* Card Animations */
+.card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Table Styling */
+.table-dark {
+  --bs-table-bg: #1a1a1a;
+  --bs-table-border-color: #2a2a2a;
+}
+
+/* Button Hover Effects */
+.btn-outline-warning:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(217, 119, 6, 0.2);
+}
