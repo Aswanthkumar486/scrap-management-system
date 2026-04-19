@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import React, { useState, useEffect } from "react";
 import API from "../utils/api";
 
@@ -127,7 +128,7 @@ function Sales() {
     try {
       const token = localStorage.getItem("token");
 
-      const res = await fetch(`http://localhost:5000/api/bill/${id}`, {
+      const res = await fetch(`https://scrap-backend-l7w1.onrender.com/api/bill/${id}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
