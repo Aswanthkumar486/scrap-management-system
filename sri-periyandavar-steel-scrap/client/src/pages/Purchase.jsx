@@ -33,8 +33,7 @@ function Purchase() {
 
     if (searchTerm) {
       filtered = filtered.filter(item =>
-        item.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.material?.toLowerCase().includes(searchTerm.toLowerCase())
+        item.customerName?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
@@ -48,7 +47,9 @@ function Purchase() {
     setFilteredData(filtered);
   }, [searchTerm, fromDate, toDate, data]);
 
-  const totalWeight = filteredData.reduce((sum, item) => sum + (item.weight || 0), 0);
+  const totalItems = filteredData.reduce((sum, item) => sum + (item.items?.length || 0), 0);
+  const totalWeight = filteredData.reduce((sum, item) => 
+    sum + (item.items?.reduce((s, i) => s + (i.weight || 0), 0) || 0), 0);
   const totalAmount = filteredData.reduce((sum, item) => sum + (item.total || 0), 0);
 
   const resetFilters = () => {
@@ -72,6 +73,10 @@ function Purchase() {
               </p>
             </div>
             <div className="d-flex gap-2">
+              <div className="bg-dark border border-warning rounded-3 p-3 text-center">
+                <small className="text-secondary">Total Purchases</small>
+                <h4 className="text-warning mb-0">{filteredData.length}</h4>
+              </div>
               <div className="bg-dark border border-warning rounded-3 p-3 text-center">
                 <small className="text-secondary">Total Weight</small>
                 <h4 className="text-warning mb-0">{totalWeight.toLocaleString()} kg</h4>
@@ -100,7 +105,7 @@ function Purchase() {
                 <input
                   type="text"
                   className="form-control bg-dark text-light border-warning"
-                  placeholder="Search by customer or material..."
+                  placeholder="Search by supplier..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -153,78 +158,73 @@ function Purchase() {
               </div>
               <p className="text-secondary mt-3">Loading purchase records...</p>
             </div>
+          ) : filteredData.length === 0 ? (
+            <div className="text-center py-5">
+              <i className="bi bi-inbox fs-1 text-secondary d-block mb-2"></i>
+              <p className="text-secondary mb-0">No purchase records found</p>
+            </div>
           ) : (
             <div className="table-responsive">
               <table className="table table-dark table-hover mb-0">
                 <thead className="border-bottom border-warning">
                   <tr>
                     <th><i className="bi bi-person me-1"></i> Supplier</th>
-                    <th><i className="bi bi-cube me-1"></i> Material</th>
-                    <th><i className="bi bi-image me-1"></i> Image</th>
-                    <th><i className="bi bi-weight-scale me-1"></i> Weight</th>
-                    <th><i className="bi bi-currency-rupee me-1"></i> Price/kg</th>
-                    <th><i className="bi bi-calculator me-1"></i> Total</th>
+                    <th><i className="bi bi-list-ul me-1"></i> Materials</th>
+                    <th><i className="bi bi-weight-scale me-1"></i> Total Weight</th>
+                    <th><i className="bi bi-currency-rupee me-1"></i> Total Amount</th>
                     <th><i className="bi bi-calendar me-1"></i> Date</th>
+                    <th><i className="bi bi-eye me-1"></i> Details</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredData.length === 0 ? (
-                    <tr>
-                      <td colSpan="7" className="text-center py-5">
-                        <i className="bi bi-inbox fs-1 d-block mb-2 text-secondary"></i>
-                        <p className="text-secondary mb-0">No purchase records found</p>
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredData.map((d) => (
+                  {filteredData.map((d) => {
+                    const purchaseWeight = d.items?.reduce((sum, i) => sum + (i.weight || 0), 0) || 0;
+                    return (
                       <tr key={d._id} className="border-bottom border-secondary">
-                        <td className="fw-semibold">{d.customerName}</td>
-                        <td>
-                          <span className="badge bg-warning bg-opacity-25 text-warning">
-                            {d.material}
-                          </span>
+                        <td className="fw-semibold">
+                          <i className="bi bi-building text-warning me-2"></i>
+                          {d.customerName}
                         </td>
                         <td>
-                          {d.image ? (
-                            <img
-                              src={d.image}
-                              width="45"
-                              height="45"
-                              alt="purchase"
-                              className="rounded-3 border border-warning"
-                              style={{ objectFit: "cover", cursor: "pointer" }}
-                              onClick={() => window.open(d.image, "_blank")}
-                              onError={(e) => {
-                                e.target.src = "https://via.placeholder.com/45?text=Scrap";
-                              }}
-                            />
-                          ) : (
-                            <div className="bg-secondary bg-opacity-25 rounded-3 d-flex align-items-center justify-content-center" style={{ width: "45px", height: "45px" }}>
-                              <i className="bi bi-image text-secondary"></i>
+                          {d.items?.map((i, index) => (
+                            <div key={index} className="mb-1">
+                              <span className="badge bg-warning bg-opacity-25 text-warning me-2">
+                                {i.material}
+                              </span>
+                              <small className="text-secondary">({i.weight} kg @ ₹{i.pricePerKg})</small>
                             </div>
-                          )}
+                          ))}
                         </td>
-                        <td className="text-warning fw-semibold">{d.weight} kg</td>
-                        <td>₹{d.pricePerKg?.toLocaleString()}</td>
+                        <td className="text-warning fw-semibold">{purchaseWeight.toLocaleString()} kg</td>
                         <td className="text-success fw-bold">₹{d.total?.toLocaleString()}</td>
                         <td className="text-secondary">
                           <small>{new Date(d.createdAt).toLocaleDateString('en-IN')}</small>
                         </td>
+                        <td>
+                          <button
+                            className="btn btn-sm btn-outline-info"
+                            onClick={() => {
+                              const details = d.items?.map(i => 
+                                `${i.material}: ${i.weight}kg @ ₹${i.pricePerKg} = ₹${i.total}`
+                              ).join('\n');
+                              alert(`Supplier: ${d.customerName}\n\nItems:\n${details}\n\nTotal: ₹${d.total}`);
+                            }}
+                          >
+                            <i className="bi bi-info-circle"></i> View
+                          </button>
+                        </td>
                       </tr>
-                    ))
-                  )}
+                    );
+                  })}
                 </tbody>
-                {filteredData.length > 0 && (
-                  <tfoot className="border-top border-warning">
-                    <tr className="fw-bold">
-                      <td colSpan="3" className="text-end text-secondary">Total:</td>
-                      <td className="text-warning">{totalWeight.toLocaleString()} kg</td>
-                      <td></td>
-                      <td className="text-success">₹{totalAmount.toLocaleString()}</td>
-                      <td></td>
-                    </tr>
-                  </tfoot>
-                )}
+                <tfoot className="border-top border-warning">
+                  <tr className="fw-bold">
+                    <td colSpan="2" className="text-end text-secondary">Total:</td>
+                    <td className="text-warning">{totalWeight.toLocaleString()} kg</td>
+                    <td className="text-success">₹{totalAmount.toLocaleString()}</td>
+                    <td colSpan="2"></td>
+                  </tr>
+                </tfoot>
               </table>
             </div>
           )}
