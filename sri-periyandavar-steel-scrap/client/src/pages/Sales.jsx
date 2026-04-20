@@ -5,10 +5,7 @@ import API from "../utils/api";
 function Sales() {
   const [form, setForm] = useState({
     customerName: "",
-    product: "",
-    weight: "",
-    pricePerKg: "",
-    total: 0
+    items: [{ product: "", weight: "", pricePerKg: "", total: 0 }]
   });
 
   const [data, setData] = useState([]);
@@ -30,7 +27,7 @@ function Sales() {
       setData(res.data);
       setFilteredData(res.data);
     } catch (err) {
-      console.log("ERROR:", err.response?.data || err.message);
+      console.log(err);
     }
   };
 
@@ -40,16 +37,61 @@ function Sales() {
       const res = await API.get("/api/products");
       setProducts(res.data);
     } catch (err) {
-      console.log("Product fetch error:", err);
+      console.log(err);
     }
   };
 
-  // ✅ SUBMIT SALE
+  // ➕ ADD ITEM
+  const addItem = () => {
+    setForm({
+      ...form,
+      items: [...form.items, { product: "", weight: "", pricePerKg: "", total: 0 }]
+    });
+  };
+
+  // ❌ REMOVE ITEM
+  const removeItem = (index) => {
+    const updated = form.items.filter((_, i) => i !== index);
+    setForm({ ...form, items: updated });
+  };
+
+  // 🔄 HANDLE ITEM CHANGE
+  const handleItemChange = (index, field, value) => {
+    const updatedItems = [...form.items];
+    updatedItems[index][field] = value;
+
+    const w = Number(updatedItems[index].weight || 0);
+    const p = Number(updatedItems[index].pricePerKg || 0);
+    updatedItems[index].total = w * p;
+
+    setForm({ ...form, items: updatedItems });
+  };
+
+  // 🧠 PRODUCT SELECT
+  const handleProductSelect = (index, value) => {
+    const selected = products.find(p => p.name === value);
+
+    if (selected) {
+      const updatedItems = [...form.items];
+      updatedItems[index].product = selected.name;
+      updatedItems[index].pricePerKg = selected.pricePerKg;
+
+      const w = Number(updatedItems[index].weight || 0);
+      updatedItems[index].total = w * selected.pricePerKg;
+
+      setForm({ ...form, items: updatedItems });
+    }
+  };
+
+  // 💰 GRAND TOTAL
+  const grandTotal = form.items.reduce((sum, item) => sum + item.total, 0);
+
+  // ✅ SUBMIT
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!form.customerName || !form.product || !form.weight || !form.pricePerKg) {
-      alert("⚠️ Please fill all fields");
+    if (!form.customerName || form.items.length === 0) {
+      alert("⚠️ Fill all fields");
       return;
     }
 
@@ -57,57 +99,36 @@ function Sales() {
 
     try {
       await API.post("/api/sales", {
-        ...form,
-        weight: Number(form.weight),
-        pricePerKg: Number(form.pricePerKg),
-        total: Number(form.weight) * Number(form.pricePerKg)
+        customerName: form.customerName,
+        items: form.items,
+        total: grandTotal
       });
 
-      alert("✅ Sale Added Successfully!");
+      alert("✅ Sale Added!");
       fetchData();
 
       setForm({
         customerName: "",
-        product: "",
-        weight: "",
-        pricePerKg: "",
-        total: 0
+        items: [{ product: "", weight: "", pricePerKg: "", total: 0 }]
       });
 
     } catch (err) {
-      console.log("Add sale error:", err);
-      alert("❌ Error adding sale");
+      console.log(err);
+      alert("❌ Error");
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ SELECT PRODUCT
-  const handleProductSelect = (e) => {
-    const selected = products.find(p => p.name === e.target.value);
-
-    if (selected) {
-      setForm({
-        ...form,
-        product: selected.name,
-        pricePerKg: selected.pricePerKg || 0
-      });
-    }
-  };
-
-  // ✅ FILTER
+  // 📅 FILTER
   const handleFilter = async () => {
     if (!fromDate || !toDate) {
-      alert("⚠️ Select both dates");
+      alert("Select dates");
       return;
     }
 
-    try {
-      const res = await API.get(`/api/sales/filter?from=${fromDate}&to=${toDate}`);
-      setFilteredData(res.data);
-    } catch (err) {
-      console.log("Filter error:", err);
-    }
+    const res = await API.get(`/api/sales/filter?from=${fromDate}&to=${toDate}`);
+    setFilteredData(res.data);
   };
 
   const resetFilter = () => {
@@ -116,22 +137,21 @@ function Sales() {
     setToDate("");
   };
 
-  // ✅ SAFE DATE FORMAT (fix crash issue)
   const formatDate = (date) => {
     if (!date) return "-";
     const d = new Date(date);
     return isNaN(d) ? "-" : d.toLocaleDateString("en-IN");
   };
 
-  // ✅ BILL DOWNLOAD WITH TOKEN (IMPORTANT FIX)
+  const totalAmount = filteredData.reduce((sum, item) => sum + (item.total || 0), 0);
+
+  // 🧾 BILL
   const openBill = async (id) => {
     try {
       const token = localStorage.getItem("token");
 
       const res = await fetch(`https://scrap-backend-l7w1.onrender.com/api/bill/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
+        headers: { Authorization: `Bearer ${token}` }
       });
 
       const blob = await res.blob();
@@ -139,25 +159,17 @@ function Sales() {
       window.open(url);
 
     } catch (err) {
-      console.log("Bill error:", err);
-      alert("❌ Failed to open bill");
+      alert("Bill error");
     }
   };
-
-  const totalAmount = filteredData.reduce((sum, item) => sum + (item.total || 0), 0);
 
   return (
     <div>
       {/* HEADER */}
-      <div className="card bg-dark border-warning rounded-4 mb-4">
-        <div className="card-body p-4 d-flex justify-content-between">
-          <div>
-            <h3 className="text-warning">Sales Management</h3>
-            <p className="text-secondary">Track all scrap sales</p>
-          </div>
-          <div>
-            <h5 className="text-success">₹{totalAmount.toLocaleString()}</h5>
-          </div>
+      <div className="card bg-dark border-warning mb-4">
+        <div className="card-body d-flex justify-content-between">
+          <h3 className="text-warning">Sales</h3>
+          <h5 className="text-success">₹{totalAmount}</h5>
         </div>
       </div>
 
@@ -170,53 +182,71 @@ function Sales() {
                 className="form-control mb-2"
                 placeholder="Customer Name"
                 value={form.customerName}
-                onChange={(e) => setForm({ ...form, customerName: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, customerName: e.target.value })
+                }
               />
 
-              <select
-                className="form-control mb-2"
-                value={form.product}
-                onChange={handleProductSelect}
+              {form.items.map((item, index) => (
+                <div key={index} className="border p-2 mb-2 rounded">
+                  <select
+                    className="form-control mb-2"
+                    value={item.product}
+                    onChange={(e) =>
+                      handleProductSelect(index, e.target.value)
+                    }
+                  >
+                    <option value="">Select Product</option>
+                    {products.map(p => (
+                      <option key={p._id} value={p.name}>
+                        {p.name} (₹{p.pricePerKg}/kg)
+                      </option>
+                    ))}
+                  </select>
+
+                  <input
+                    type="number"
+                    className="form-control mb-2"
+                    placeholder="Weight"
+                    value={item.weight}
+                    onChange={(e) =>
+                      handleItemChange(index, "weight", e.target.value)
+                    }
+                  />
+
+                  <input
+                    type="number"
+                    className="form-control mb-2"
+                    placeholder="Price/kg"
+                    value={item.pricePerKg}
+                    onChange={(e) =>
+                      handleItemChange(index, "pricePerKg", e.target.value)
+                    }
+                  />
+
+                  <p className="text-warning">₹{item.total}</p>
+
+                  {form.items.length > 1 && (
+                    <button
+                      type="button"
+                      className="btn btn-danger btn-sm"
+                      onClick={() => removeItem(index)}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              ))}
+
+              <button
+                type="button"
+                className="btn btn-secondary mb-2"
+                onClick={addItem}
               >
-                <option value="">Select Product</option>
-                {products.map(p => (
-                  <option key={p._id} value={p.name}>
-                    {p.name} (₹{p.pricePerKg}/kg)
-                  </option>
-                ))}
-              </select>
+                + Add Product
+              </button>
 
-              <input
-                type="number"
-                className="form-control mb-2"
-                placeholder="Weight"
-                value={form.weight}
-                onChange={(e) => {
-                  const w = e.target.value;
-                  setForm({
-                    ...form,
-                    weight: w,
-                    total: Number(w) * Number(form.pricePerKg)
-                  });
-                }}
-              />
-
-              <input
-                type="number"
-                className="form-control mb-2"
-                placeholder="Price/kg"
-                value={form.pricePerKg}
-                onChange={(e) => {
-                  const p = e.target.value;
-                  setForm({
-                    ...form,
-                    pricePerKg: p,
-                    total: Number(form.weight) * Number(p)
-                  });
-                }}
-              />
-
-              <h5 className="text-warning">Total: ₹{form.total}</h5>
+              <h5 className="text-warning">Total: ₹{grandTotal}</h5>
 
               <button className="btn btn-warning w-100" disabled={loading}>
                 {loading ? "Processing..." : "Add Sale"}
@@ -231,8 +261,8 @@ function Sales() {
             <thead>
               <tr>
                 <th>Customer</th>
-                <th>Product</th>
-                <th>Weight</th>
+                <th>Products</th>
+                <th>Weights</th>
                 <th>Total</th>
                 <th>Date</th>
                 <th>Bill</th>
@@ -242,10 +272,22 @@ function Sales() {
               {filteredData.map((d) => (
                 <tr key={d._id}>
                   <td>{d.customerName}</td>
-                  <td>{d.product}</td>
-                  <td>{d.weight} kg</td>
+
+                  <td>
+                    {d.items?.map((item, i) => (
+                      <div key={i}>{item.product}</div>
+                    ))}
+                  </td>
+
+                  <td>
+                    {d.items?.map((item, i) => (
+                      <div key={i}>{item.weight} kg</div>
+                    ))}
+                  </td>
+
                   <td>₹{d.total}</td>
                   <td>{formatDate(d.createdAt)}</td>
+
                   <td>
                     <button
                       className="btn btn-sm btn-warning"

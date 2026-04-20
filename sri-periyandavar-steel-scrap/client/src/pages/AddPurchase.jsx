@@ -2,18 +2,14 @@ import { useState, useEffect } from "react";
 import API from "../utils/api";
 
 function AddPurchase({ refreshPurchase }) {
+
   const [form, setForm] = useState({
     customerName: "",
-    material: "",
-    weight: "",
-    pricePerKg: "",
-    total: 0,
+    items: [{ material: "", weight: "", pricePerKg: "", total: 0 }],
     image: ""
   });
 
   const [scrapList, setScrapList] = useState([]);
-  const [newScrap, setNewScrap] = useState({ material: "", pricePerKg: "" });
-  const [activeTab, setActiveTab] = useState("purchase");
 
   useEffect(() => {
     fetchScrap();
@@ -24,231 +20,140 @@ function AddPurchase({ refreshPurchase }) {
     setScrapList(res.data);
   };
 
-  const addScrap = async () => {
-    if (!newScrap.material || !newScrap.pricePerKg) {
-      alert("⚠️ Fill all fields");
-      return;
-    }
-    await API.post("/api/scrap", newScrap);
-    setNewScrap({ material: "", pricePerKg: "" });
-    fetchScrap();
-    alert("✅ Scrap material added");
-  };
-
-  const updateScrapPrice = async (id) => {
-    const price = prompt("Enter new price per kg:");
-    if (!price) return;
-    await API.put(`/api/scrap/${id}`, { pricePerKg: Number(price) });
-    fetchScrap();
-  };
-
-  const handleChange = (e) => {
-    const newForm = { ...form, [e.target.name]: e.target.value };
-    const weight = Number(newForm.weight || 0);
-    const price = Number(newForm.pricePerKg || 0);
-    newForm.total = weight * price;
-    setForm(newForm);
-  };
-
-  const handleSelect = (e) => {
-    const selected = scrapList.find(s => s.material === e.target.value);
-    if (!selected) return;
-    const updated = {
+  // ➕ ADD ROW
+  const addItem = () => {
+    setForm({
       ...form,
-      material: selected.material,
-      pricePerKg: selected.pricePerKg
-    };
-    updated.total = Number(updated.weight || 0) * selected.pricePerKg;
-    setForm(updated);
+      items: [...form.items, { material: "", weight: "", pricePerKg: "", total: 0 }]
+    });
   };
 
+  // ❌ REMOVE ROW
+  const removeItem = (index) => {
+    const updated = form.items.filter((_, i) => i !== index);
+    setForm({ ...form, items: updated });
+  };
+
+  // 🔄 CHANGE ITEM
+  const handleItemChange = (index, field, value) => {
+    const updated = [...form.items];
+    updated[index][field] = value;
+
+    const w = Number(updated[index].weight || 0);
+    const p = Number(updated[index].pricePerKg || 0);
+    updated[index].total = w * p;
+
+    setForm({ ...form, items: updated });
+  };
+
+  // 🧠 SELECT MATERIAL
+  const handleSelect = (index, value) => {
+    const selected = scrapList.find(s => s.material === value);
+
+    if (selected) {
+      const updated = [...form.items];
+      updated[index].material = selected.material;
+      updated[index].pricePerKg = selected.pricePerKg;
+
+      const w = Number(updated[index].weight || 0);
+      updated[index].total = w * selected.pricePerKg;
+
+      setForm({ ...form, items: updated });
+    }
+  };
+
+  // 💰 TOTAL
+  const grandTotal = form.items.reduce((sum, i) => sum + i.total, 0);
+
+  // ✅ SUBMIT
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.customerName || !form.material || !form.weight || !form.pricePerKg) {
-      alert("⚠️ Please fill all required fields");
+
+    if (!form.customerName || form.items.length === 0) {
+      alert("Fill all fields");
       return;
     }
+
     await API.post("/api/purchase", {
       customerName: form.customerName,
-      material: form.material,
-      weight: Number(form.weight),
-      pricePerKg: Number(form.pricePerKg),
-      total: form.total,
+      items: form.items,
+      total: grandTotal,
       image: form.image
     });
-    alert("✅ Purchase Added Successfully!");
-    setForm({ customerName: "", material: "", weight: "", pricePerKg: "", total: 0, image: "" });
+
+    alert("Purchase Added");
+
+    setForm({
+      customerName: "",
+      items: [{ material: "", weight: "", pricePerKg: "", total: 0 }],
+      image: ""
+    });
+
     if (refreshPurchase) refreshPurchase();
   };
 
   return (
-    <div className="card bg-dark border-warning rounded-4 shadow-lg">
-      <div className="card-header bg-transparent border-warning py-3">
-        <ul className="nav nav-tabs card-header-tabs" style={{ borderBottom: "none" }}>
-          <li className="nav-item">
-            <button
-              className={`nav-link ${activeTab === "purchase" ? "active bg-warning text-dark" : "text-secondary"}`}
-              onClick={() => setActiveTab("purchase")}
-              style={{ borderRadius: "8px 8px 0 0" }}
+    <div className="card p-3 bg-dark border-warning">
+      <form onSubmit={handleSubmit}>
+
+        <input
+          className="form-control mb-2"
+          placeholder="Supplier Name"
+          value={form.customerName}
+          onChange={(e) => setForm({ ...form, customerName: e.target.value })}
+        />
+
+        {form.items.map((item, index) => (
+          <div key={index} className="border p-2 mb-2">
+
+            <select
+              className="form-control mb-2"
+              value={item.material}
+              onChange={(e) => handleSelect(index, e.target.value)}
             >
-              <i className="bi bi-cart-plus me-2"></i>Add Purchase
-            </button>
-          </li>
-          <li className="nav-item">
-            <button
-              className={`nav-link ${activeTab === "scrap" ? "active bg-warning text-dark" : "text-secondary"}`}
-              onClick={() => setActiveTab("scrap")}
-              style={{ borderRadius: "8px 8px 0 0" }}
-            >
-              <i className="bi bi-gear me-2"></i>Manage Scrap Materials
-            </button>
-          </li>
-        </ul>
-      </div>
+              <option value="">Select Material</option>
+              {scrapList.map(s => (
+                <option key={s._id} value={s.material}>
+                  {s.material} (₹{s.pricePerKg})
+                </option>
+              ))}
+            </select>
 
-      <div className="card-body p-4">
-        {activeTab === "purchase" ? (
-          <form onSubmit={handleSubmit}>
-            <div className="mb-3">
-              <label className="form-label text-secondary">
-                <i className="bi bi-person-fill me-2 text-warning"></i>Supplier/Customer Name
-              </label>
-              <input
-                className="form-control bg-dark text-light border-secondary"
-                style={{ borderLeft: "3px solid #d97706" }}
-                placeholder="Enter name"
-                name="customerName"
-                value={form.customerName}
-                onChange={handleChange}
-              />
-            </div>
+            <input
+              type="number"
+              className="form-control mb-2"
+              placeholder="Weight"
+              value={item.weight}
+              onChange={(e) => handleItemChange(index, "weight", e.target.value)}
+            />
 
-            <div className="mb-3">
-              <label className="form-label text-secondary">
-                <i className="bi bi-list-ul me-2 text-warning"></i>Select Scrap Material
-              </label>
-              <select className="form-control bg-dark text-light border-secondary" onChange={handleSelect}>
-                <option value="">-- Select Material --</option>
-                {scrapList.map(s => (
-                  <option key={s._id} value={s.material}>
-                    {s.material} (₹{s.pricePerKg}/kg)
-                  </option>
-                ))}
-              </select>
-            </div>
+            <input
+              type="number"
+              className="form-control mb-2"
+              placeholder="Price/kg"
+              value={item.pricePerKg}
+              onChange={(e) => handleItemChange(index, "pricePerKg", e.target.value)}
+            />
 
-            <div className="row g-3 mb-3">
-              <div className="col-md-6">
-                <label className="form-label text-secondary">
-                  <i className="bi bi-weight-scale me-2 text-warning"></i>Weight (Kg)
-                </label>
-                <input
-                  type="number"
-                  name="weight"
-                  className="form-control bg-dark text-light border-secondary"
-                  placeholder="Enter weight"
-                  value={form.weight}
-                  onChange={handleChange}
-                />
-              </div>
-              <div className="col-md-6">
-                <label className="form-label text-secondary">
-                  <i className="bi bi-currency-rupee me-2 text-warning"></i>Price per Kg
-                </label>
-                <input
-                  type="number"
-                  name="pricePerKg"
-                  className="form-control bg-dark text-light border-secondary"
-                  placeholder="Rate"
-                  value={form.pricePerKg}
-                  onChange={handleChange}
-                />
-              </div>
-            </div>
+            <p>₹{item.total}</p>
 
-            <div className="mb-3">
-              <label className="form-label text-secondary">
-                <i className="bi bi-image me-2 text-warning"></i>Bill/Receipt Image URL
-              </label>
-              <input
-                className="form-control bg-dark text-light border-secondary"
-                placeholder="Image URL"
-                value={form.image}
-                onChange={(e) => setForm({ ...form, image: e.target.value })}
-              />
-            </div>
-
-            <div className="mb-3 p-3 bg-dark rounded-3">
-              <label className="form-label text-warning fw-bold mb-2">
-                <i className="bi bi-calculator-fill me-2"></i>Total Amount
-              </label>
-              <h3 className="text-warning fw-bold mb-0">₹{form.total.toLocaleString()}</h3>
-            </div>
-
-            <button type="submit" className="btn btn-warning w-100 py-2 fw-bold">
-              <i className="bi bi-check-circle me-2"></i>Save Purchase
-            </button>
-          </form>
-        ) : (
-          <div>
-            <h5 className="text-warning mb-3">
-              <i className="bi bi-plus-circle me-2"></i>Add New Scrap Material
-            </h5>
-            <div className="row g-2 mb-4">
-              <div className="col-md-5">
-                <input
-                  className="form-control bg-dark text-light border-secondary"
-                  placeholder="Material Name"
-                  value={newScrap.material}
-                  onChange={(e) => setNewScrap({ ...newScrap, material: e.target.value })}
-                />
-              </div>
-              <div className="col-md-5">
-                <input
-                  type="number"
-                  className="form-control bg-dark text-light border-secondary"
-                  placeholder="Price per Kg"
-                  value={newScrap.pricePerKg}
-                  onChange={(e) => setNewScrap({ ...newScrap, pricePerKg: e.target.value })}
-                />
-              </div>
-              <div className="col-md-2">
-                <button className="btn btn-success w-100" onClick={addScrap}>
-                  <i className="bi bi-plus"></i> Add
-                </button>
-              </div>
-            </div>
-
-            <h5 className="text-warning mb-3">
-              <i className="bi bi-database me-2"></i>Existing Scrap Materials
-            </h5>
-            <div className="table-responsive">
-              <table className="table table-dark table-hover">
-                <thead className="border-bottom border-warning">
-                  <tr>
-                    <th>Material</th>
-                    <th>Price per Kg</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {scrapList.map(s => (
-                    <tr key={s._id}>
-                      <td><i className="bi bi-cube text-warning me-2"></i>{s.material}</td>
-                      <td className="text-success fw-bold">₹{s.pricePerKg}</td>
-                      <td>
-                        <button className="btn btn-sm btn-outline-warning" onClick={() => updateScrapPrice(s._id)}>
-                          <i className="bi bi-pencil"></i> Edit Price
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            {form.items.length > 1 && (
+              <button type="button" onClick={() => removeItem(index)}>
+                Remove
+              </button>
+            )}
           </div>
-        )}
-      </div>
+        ))}
+
+        <button type="button" onClick={addItem}>
+          + Add Material
+        </button>
+
+        <h5>Total: ₹{grandTotal}</h5>
+
+        <button className="btn btn-warning w-100">Save</button>
+
+      </form>
     </div>
   );
 }
